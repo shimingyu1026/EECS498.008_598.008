@@ -1,1 +1,18 @@
+# Python 自动生成的缓存文件
 **/__pycache__/
+*.pyc
+
+# 虚拟环境目录
+venv/
+.venv/
+
+# 本地配置文件，通常包含敏感信息
+.env
+.flaskenv
+
+# 测试和编辑器相关文件
+.pytest_cache/
+.vscode/
+
+# Jupyter Notebook 自动生成的检查点文件
+.ipynb_checkpoints/
