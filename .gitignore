@@ -16,3 +16,6 @@ venv/
 
 # Jupyter Notebook 自动生成的检查点文件
 .ipynb_checkpoints/
+
+cifar-10-batches-py/
+**/cifar-10-batches-py/
