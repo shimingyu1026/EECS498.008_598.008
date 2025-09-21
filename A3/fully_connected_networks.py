@@ -309,20 +309,23 @@ class TwoLayerNet(object):
         ###########################################################################
 
         return loss, grads
+import torch
 
+# 假设这些辅助函数存在于 a3_helper.py 或类似文件中
+# from a3_helper import softmax_loss, Linear, Linear_ReLU, Dropout
 
 class FullyConnectedNet(object):
     """
-    A fully-connected neural network with an arbitrary number of hidden layers,
-    ReLU nonlinearities, and a softmax loss function.
-    For a network with L layers, the architecture will be:
+    一个具有任意数量隐藏层、ReLU非线性激活函数和Softmax损失函数的
+    全连接神经网络。
+    对于一个L层的网络，其架构为：
 
     {linear - relu - [dropout]} x (L - 1) - linear - softmax
 
-    where dropout is optional, and the {...} block is repeated L - 1 times.
+    其中 dropout 是可选的，并且 {...} 模块重复 L - 1 次。
 
-    Similar to the TwoLayerNet above, learnable parameters are stored in the
-    self.params dictionary and will be learned using the Solver class.
+    与上面的 TwoLayerNet 类似，可学习的参数存储在 self.params 字典中，
+    并将使用 Solver 类进行学习。
     """
 
     def __init__(
@@ -338,24 +341,21 @@ class FullyConnectedNet(object):
         device="cpu",
     ):
         """
-        Initialize a new FullyConnectedNet.
+        初始化一个新的 FullyConnectedNet。
 
-        Inputs:
-        - hidden_dims: A list of integers giving the size of each hidden layer.
-        - input_dim: An integer giving the size of the input.
-        - num_classes: An integer giving the number of classes to classify.
-        - dropout: Scalar between 0 and 1 giving the drop probability for networks
-          with dropout. If dropout=0 then the network should not use dropout.
-        - reg: Scalar giving L2 regularization strength.
-        - weight_scale: Scalar giving the standard deviation for random
-          initialization of the weights.
-        - seed: If not None, then pass this random seed to the dropout layers. This
-          will make the dropout layers deteriminstic so we can gradient check the
-          model.
-        - dtype: A torch data type object; all computations will be performed using
-          this datatype. float is faster but less accurate, so you should use
-          double for numeric gradient checking.
-        - device: device to use for computation. 'cpu' or 'cuda'
+        输入:
+        - hidden_dims: 一个整数列表，给出每个隐藏层的大小。
+        - input_dim: 一个整数，给出输入的大小。
+        - num_classes: 一个整数，给出要分类的类别数。
+        - dropout: 0到1之间的标量，给出使用dropout的概率。
+          如果dropout=0，则网络不应使用dropout。
+        - reg: 标量，给出L2正则化强度。
+        - weight_scale: 标量，给出权重随机初始化的标准差。
+        - seed: 如果不是None，则将此随机种子传递给dropout层。
+          这将使dropout层具有确定性，以便我们可以对模型进行梯度检查。
+        - dtype: 一个torch数据类型对象；所有计算都将使用此数据类型执行。
+          float更快但不太精确，因此您应该使用double进行数值梯度检查。
+        - device: 用于计算的设备，'cpu'或'cuda'。
         """
         self.use_dropout = dropout != 0
         self.reg = reg
@@ -364,21 +364,37 @@ class FullyConnectedNet(object):
         self.params = {}
 
         ############################################################################
-        # TODO: Initialize the parameters of the network, storing all values in    #
-        # the self.params dictionary. Store weights and biases for the first layer #
-        # in W1 and b1; for the second layer use W2 and b2, etc. Weights should be #
-        # initialized from a normal distribution centered at 0 with standard       #
-        # deviation equal to weight_scale. Biases should be initialized to zero.   #
+        # TODO: 初始化网络的参数，将所有值存储在 self.params 字典中。         #
+        # 将第一层的权重和偏置存储在 W1 和 b1 中；第二层使用 W2 和 b2，依此类推。 #
+        # 权重应从以0为中心、标准差等于 weight_scale 的正态分布中初始化。     #
+        # 偏置应初始化为零。                                                    #
         ############################################################################
-        # Replace "pass" statement with your code
-        pass
+        # 将所有层的维度整合到一个列表中，方便循环处理
+        all_dims = [input_dim] + hidden_dims + [num_classes]
+
+        for i in range(self.num_layers):
+            # 第 i+1 层的权重和偏置
+            W_key = f"W{i+1}"
+            b_key = f"b{i+1}"
+
+            # 获取当前层的输入和输出维度
+            in_dim = all_dims[i]
+            out_dim = all_dims[i + 1]
+
+            # 初始化权重 W
+            self.params[W_key] = weight_scale * torch.randn(
+                in_dim, out_dim, device=device, dtype=dtype
+            )
+
+            # 初始化偏置 b
+            self.params[b_key] = torch.zeros(out_dim, device=device, dtype=dtype)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
-        # When using dropout we need to pass a dropout_param dictionary to each
-        # dropout layer so that the layer knows the dropout probability and the mode
-        # (train / test). You can pass the same dropout_param to each dropout layer.
+        # 使用dropout时，我们需要为每个dropout层传递一个dropout_param字典，
+        # 以便该层知道dropout概率和模式（训练/测试）。
+        # 你可以为每个dropout层传递相同的dropout_param。
         self.dropout_param = {}
         if self.use_dropout:
             self.dropout_param = {"mode": "train", "p": dropout}
@@ -414,52 +430,101 @@ class FullyConnectedNet(object):
 
     def loss(self, X, y=None):
         """
-        Compute loss and gradient for the fully-connected net.
-        Input / output: Same as TwoLayerNet above.
+        为全连接网络计算损失和梯度。
+        输入/输出：与上面的TwoLayerNet相同。
         """
         X = X.to(self.dtype)
         mode = "test" if y is None else "train"
 
-        # Set train/test mode for batchnorm params and dropout param since they
-        # behave differently during training and testing.
+        # 为dropout参数设置训练/测试模式，因为它们在训练和测试期间的行为不同。
         if self.use_dropout:
             self.dropout_param["mode"] = mode
         scores = None
         ############################################################################
-        # TODO: Implement the forward pass for the fully-connected net, computing  #
-        # the class scores for X and storing them in the scores variable.          #
+        # TODO: 实现全连接网络的前向传播，为X计算类别分数并将其存储在scores变量中。#
         #                                                                          #
-        # When using dropout, you'll need to pass self.dropout_param to each       #
-        # dropout forward pass.                                                    #
+        # 使用dropout时，你需要将self.dropout_param传递给每个dropout前向传播。     #
         ############################################################################
-        # Replace "pass" statement with your code
-        pass
+        # 存储每一层的缓存(cache)，以便在反向传播中使用
+        caches = {}
+        current_input = X
+
+        # 对前 L-1 层进行前向传播 (Linear -> ReLU -> Dropout)
+        for i in range(1, self.num_layers):
+            W, b = self.params[f"W{i}"], self.params[f"b{i}"]
+
+            # Linear-ReLU 层
+            current_input, layer_cache = Linear_ReLU.forward(current_input, W, b)
+            caches[f"layer{i}"] = layer_cache
+
+            # 可选的 Dropout 层
+            if self.use_dropout:
+                current_input, dropout_cache = Dropout.forward(
+                    current_input, self.dropout_param
+                )
+                caches[f"dropout{i}"] = dropout_cache
+
+        # 对最后一层进行前向传播 (Linear)
+        W_last = self.params[f"W{self.num_layers}"]
+        b_last = self.params[f"b{self.num_layers}"]
+        scores, last_layer_cache = Linear.forward(current_input, W_last, b_last)
+        caches[f"layer{self.num_layers}"] = last_layer_cache
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
-        # If test mode return early
+        # 如果是测试模式，提前返回
         if mode == "test":
             return scores
 
         loss, grads = 0.0, {}
         ############################################################################
-        # TODO: Implement the backward pass for the fully-connected net. Store the #
-        # loss in the loss variable and gradients in the grads dictionary. Compute #
-        # data loss using softmax, and make sure that grads[k] holds the gradients #
-        # for self.params[k]. Don't forget to add L2 regularization!               #
-        # NOTE: To ensure that your implementation matches ours and you pass the   #
-        # automated tests, make sure that your L2 regularization includes a factor #
-        # of 0.5 to simplify the expression for the gradient.                      #
+        # TODO: 实现全连接网络的反向传播。将损失存储在loss变量中，将梯度存储在   #
+        # grads字典中。使用softmax计算数据损失，并确保grads[k]持有self.params[k] #
+        # 的梯度。不要忘记添加L2正则化！                                       #
+        # 注意：为确保你的实现与我们的匹配并通过自动化测试，请确保你的L2正则化   #
+        # 包含一个0.5的因子，以简化梯度的表达式。                              #
         ############################################################################
-        # Replace "pass" statement with your code
-        pass
+        # 假设 a3_helper.py 中有 softmax_loss 函数
+        from a3_helper import svm_loss, softmax_loss
+
+        # 1. 计算损失 (数据损失 + 正则化损失)
+        data_loss, dscores = softmax_loss(scores, y)
+        reg_loss = 0.0
+        for i in range(1, self.num_layers + 1):
+            W = self.params[f"W{i}"]
+            reg_loss += 0.5 * self.reg * torch.sum(W * W)
+        loss = data_loss + reg_loss
+
+        # 2. 反向传播
+        # 从最后一层开始
+        cache_last = caches[f"layer{self.num_layers}"]
+        dx, dW, db = Linear.backward(dscores, cache_last)
+        grads[f"W{self.num_layers}"] = dW
+        grads[f"b{self.num_layers}"] = db
+
+        # 循环反向传播 L-1 到 1 层
+        for i in range(self.num_layers - 1, 0, -1):
+            # 可选的 Dropout 反向传播
+            if self.use_dropout:
+                dropout_cache = caches[f"dropout{i}"]
+                dx = Dropout.backward(dx, dropout_cache)
+
+            # Linear-ReLU 反向传播
+            layer_cache = caches[f"layer{i}"]
+            dx, dW, db = Linear_ReLU.backward(dx, layer_cache)
+            grads[f"W{i}"] = dW
+            grads[f"b{i}"] = db
+
+        # 3. 为权重梯度添加正则化项
+        for i in range(1, self.num_layers + 1):
+            W = self.params[f"W{i}"]
+            grads[f"W{i}"] += self.reg * W
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
 
         return loss, grads
-
 
 def create_solver_instance(data_dict, dtype, device):
     model = TwoLayerNet(hidden_dim=200, dtype=dtype, device=device)
@@ -490,10 +555,9 @@ def get_three_layer_network_params():
     # TODO: Change weight_scale and learning_rate so your model achieves 100%  #
     # training accuracy within 20 epochs.                                      #
     ############################################################################
-    weight_scale = 1e-2  # Experiment with this!
-    learning_rate = 1e-4  # Experiment with this!
+    weight_scale = 6e-2  # Experiment with this!
+    learning_rate = 0.84  # Experiment with this!
     # Replace "pass" statement with your code
-    pass
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -505,10 +569,9 @@ def get_five_layer_network_params():
     # TODO: Change weight_scale and learning_rate so your model achieves 100%  #
     # training accuracy within 20 epochs.                                      #
     ############################################################################
-    learning_rate = 2e-3  # Experiment with this!
-    weight_scale = 1e-5  # Experiment with this!
+    learning_rate = 0.464  # Experiment with this!
+    weight_scale = 8e-2  # Experiment with this!
     # Replace "pass" statement with your code
-    pass
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -551,7 +614,11 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.       #
     #############################################################################
     # Replace "pass" statement with your code
-    pass
+    lr = config["learning_rate"]
+    mu = config["momentum"]
+
+    v = mu * v - lr * dw
+    next_w = w + v
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -585,7 +652,18 @@ def rmsprop(w, dw, config=None):
     # config['cache'].                                                        #
     ###########################################################################
     # Replace "pass" statement with your code
-    pass
+    lr = config["learning_rate"]
+    decay_rate = config["decay_rate"]
+    eps = config["epsilon"]
+    cache = config["cache"]
+
+    # 更新二阶矩（平方梯度的移动平均）
+    cache = decay_rate * cache + (1 - decay_rate) * (dw**2)
+
+    # 参数更新
+    next_w = w - (lr * dw) / (torch.sqrt(cache) + eps)
+    
+    config["cache"] = cache
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -626,7 +704,31 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                             #
     #############################################################################
     # Replace "pass" statement with your code
-    pass
+    
+    lr = config["learning_rate"]
+    beta1 = config["beta1"]
+    beta2 = config["beta2"]
+    eps = config["epsilon"]
+    m = config["m"]
+    v = config["v"]
+    t = config["t"]
+    t += 1
+
+    # 一阶、二阶动量
+    m = beta1 * m + (1 - beta1) * dw
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
+
+    # 偏差修正
+    m_hat = m / (1 - beta1 ** t)
+    v_hat = v / (1 - beta2 ** t)
+
+    # 参数更新
+    next_w = w - lr * m_hat / (torch.sqrt(v_hat) + eps)
+
+    # 保存更新值
+    config["m"] = m
+    config["v"] = v
+    config["t"] = t
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -672,7 +774,14 @@ class Dropout(object):
             # Store the dropout mask in the mask variable.                            #
             ###########################################################################
             # Replace "pass" statement with your code
-            pass
+            keep_prob = 1 - p
+            # 创建一个与输入 x 形状相同的二元掩码 (binary mask)
+            # 掩码中的值为 1 (保留) 的概率为 keep_prob
+            # 我们需要将布尔掩码转换为与 x 相同的数据类型以便进行乘法运算
+            mask = (torch.rand_like(x) < keep_prob).to(x.dtype)
+            # 应用掩码，并除以 keep_prob 来进行缩放 (这是“反向 dropout”的关键)
+            # 这样做的目的是为了在测试时不需要进行任何操作
+            out = (x * mask) / keep_prob
             ###########################################################################
             #                             END OF YOUR CODE                            #
             ###########################################################################
@@ -681,7 +790,7 @@ class Dropout(object):
             # TODO: Implement the test phase forward pass for inverted dropout.       #
             ###########################################################################
             # Replace "pass" statement with your code
-            pass
+            out = x
             ###########################################################################
             #                             END OF YOUR CODE                            #
             ###########################################################################
@@ -707,7 +816,11 @@ class Dropout(object):
             # TODO: Implement training phase backward pass for inverted dropout       #
             ###########################################################################
             # Replace "pass" statement with your code
-            pass
+            # 计算保留概率
+            keep_prob = 1 - dropout_param["p"]
+            # 只将梯度传回给在前向传播中被“保留”的神经元
+            # 同样需要进行与前向传播中相同的缩放
+            dx = (dout * mask) / keep_prob
             ###########################################################################
             #                            END OF YOUR CODE                             #
             ###########################################################################
